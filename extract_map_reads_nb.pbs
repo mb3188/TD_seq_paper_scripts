@@ -1,0 +1,22 @@
+#!/bin/bash
+
+#PBS -q cgsb-s
+#PBS -l nodes=1:ppn=2,walltime=10:00:00,mem=48000mb
+#PBS -N extract_reds_nb
+#PBS -M mb3188@nyu.edu
+#PBS -m a
+#PBS -j eo
+
+
+cd ${PBS_O_WORKDIR}
+
+qstat -f ${PBS_JOBID}
+echo `date`
+echo `hostname`
+
+if [ -z ${PBS_ARRAYID} ]; then
+	echo _ERROR_ expecting an array job in extract_map_reads_nb.sh
+	exit 1
+fi
+
+source extract_map_reads_nb.sh > extract_map_reads_nb.${PBS_ARRAYID}.${PBS_JOBID}.log 2>&1
