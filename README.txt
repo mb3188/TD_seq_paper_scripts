@@ -10,13 +10,13 @@ on quality control.
 The pipeline is run in two phases (1) the initial alignment for long reads
 (2) a second phase where quality control, coverage filtering and insertion detection.   
 The two phases are executed separately by running two scripts -- master.sh  
-which produces output in alignments.1 directory and  INSERTION_DETECTION.pbs which should be copied to 
- alignments.1 directory together with its bash script INSERTION_DETECTION.pb and run after alignment has finished. 
+which produces output in alignments.1 directory and  Insertion_detection.pbs which should be copied to 
+ alignments.1 directory together with its bash script Insertion_detection.sh and run after alignment has finished. 
 
 master.sh conducts alignments 
 
 The recommended protocol is to run aln_pipeline.pbs to completion and then execute
-INSERTION_DETECTION.pbs (see below). 
+Insertion_detection.pbs (see below). 
 
 
  
@@ -115,10 +115,10 @@ inside your global project directory and repeat the above steps. Again, "fastqs"
 remain the same and if the fastq files are not different then the same "fastqs_to_align.txt"
 file can be copied into "project.2"
 
-13. To run the second phase of the analysis. Copy INSERTION_DETECTION.sh and INSERTION_DETECTION.pbs
+13. To run the second phase of the analysis. Copy Insertion_detection.sh and Insertion_detection.pbs
 into alignmnet.1 directory and run it by using following command: 
 
-qsub -t INSERTION_DETECTION.pbs # t is the number of samples -1 in order to perform parallel proces. 
+qsub -t Insertion_detection.pbs # t is the number of samples -1 in order to perform parallel proces. 
 
 14. This part of the pipeline will perform quality control for mapping, coverage filtering 
 and find where all the insertions are in the relationship to genes in the genome. 
@@ -143,4 +143,20 @@ the false positive rate
 #**can set the slot limit on an array job using -t 0-99%25 (max 25 at a time in this example)
 #for really big jobs
 
+
+
+############################  RNA-seq analysis
+
+# Everything remains the same as above, the same pipline is used the difference is that  aln_pipeline_RNA.pbs
+and  aln_pipelin_RNA.sh parameters should be used for a run and new project folder in 
+which run will occur should be created. 
+
+After alignment is finished the number of reads aligned and counts of the reads per feature can be obtained
+by using the 
+
+
+After having raw counts calculated by HTseq we use DNAseq2 package in R using 
+Script_DNseq2_analysis_RNAseq_TD_paper.Rmd script
+Other script that performs pairwise comparison of RNA-seq between strains was used as well: 
+Pairwise_comparison_Script.R
 
