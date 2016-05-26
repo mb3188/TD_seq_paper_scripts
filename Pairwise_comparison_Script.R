@@ -1,3 +1,4 @@
+# This is a serious of parwise comparisons between each isolate and its G3 for upregulated and down-regulated genes. 
 resG3_NYCA04 = results(dds1, contrast=c("group","G3","NYCA04"))
 resG3_NYCA04_signf<-resG3_NYCA04[which(resG3_NYCA04$padj < 0.1),]
 write.table(resG3_NYCA04_signf, "resG3_NYCA04_signf")
