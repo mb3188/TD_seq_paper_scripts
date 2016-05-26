@@ -1,0 +1,425 @@
+---
+output: pdf_document
+---
+Title
+========================================================
+#Description of how we get the data we have here
+
+#DATA analysis is here for RNA_Seq: /data/cgsb/carlton/MB_ddRAD/MB_BACKUP/TD_SEQ_PAPAER_ANALYSIS/RNA_SEQ_ANALYSIS
+
+============================================
+
+# DO THIS ON THE CLUSTER, RUN HTSEQ SCRIPT TO COUNT GENE FEATURES : exract_map_reads.pbs
+
+BUNCH OF SCRIPTS IN R TO PLOT DATA: http://userweb.eng.gla.ac.uk/umer.ijaz/bioinformatics/ecological.html
+
+
+#merge all the results from htseq
+
+
+paste *_htseq_no_alignment_filter.txt | tr ' ' \\t > ALL_htseq_no_alignment_filter_results
+
+paste *_htseq.txt | tr ' ' \\t > ALL_htseq_results
+
+#extract only columns that have counts an leave only one column that has names of genes
+
+ awk '{print $1, $2, $4, $6, $8, $10,$12,$14,$16,$18,$20,$22,$24,$26,$28,$30,$32,$34,$36,$38,$40,$42,$44,$46,$48,$50,$52,$54,$56,$58,$60,$62,$64,$66,$68,$70,$72,$74, $76,$78,$80,$82}'  ALL_htseq_no_alignment_filter_results | tr ' ' \\t > ALL_htseq_no_alignment_filter_TABLE
+awk '{print $1, $2, $4, $6, $8, $10,$12,$14,$16,$18,$20,$22,$24,$26,$28,$30,$32,$34,$36,$38,$40,$42,$44,$46,$48,$50,$52,$54,$56,$58,$60,$62,$64,$66,$68,$70,$72,$74, $76,$78,$80,$82}' ALL_htseq_results | tr ' ' \\t > ALL_htseq_results_TABLE
+
+========================================================================
+
+#START DNASeq2 analysis
+
+```{r}
+setwd("~/Dropbox/Miseq_experiment/TE_display_paper/DATA_analysis_RNAseq")
+```
+
+# Input the table into R in order to 
+
+```{r}
+hiseq_AUG2014_htseq_results_all.txt<-read.table("hiseq_AUG2014_htseq_results_all.txt")
+target<-read.table("target.txt", header=T)
+```
+
+
+```
+
+
+     PART 1 : DATA LOADING AND DESCRIPTION       
+
+ step 1: load packages
+```{r}
+library(DESeq2)
+```
+
+ step 2: load target file
+```{r}
+rownames(target) <- target[,1]
+target
+```
+ step 3: load count data and examine raw counts, get that with HTseq program,
+there is the function in Dseq 2 that can read individual output files of counts table from each sample
+```{r}
+rawData1 <- hiseq_AUG2014_htseq_results_all.txt
+head(rawData1)
+dim(rawData1)
+                
+                       
+```
+ step 4: transform count data into matrix
+```{r}
+counts1 <- as.matrix(rawData1[,-1])
+head(counts1)
+rownames(counts1) <- rawData1[,1]
+head(counts1)
+
+```
+ step 5: re-order target and counts according to condition
+```{r}
+#target <- target[order(target$group),]
+#counts1 <- counts1[,target$label]
+head(counts1)
+
+
+```
+ step 6: Total read count per sample
+```{r}
+colors <- as.integer(target$group)+1
+TC1 <- colSums(counts1)
+barplot(TC1, col=colors, main="Total number of reads",las=2)
+
+#legend("topright", as.character(unique(target$group)), fill=unique(colors))
+
+
+
+```
+ step 7: null counts per sample
+```{r}
+N1 <- apply(counts1, 2, function(x){sum(x == 0)})*100/nrow(counts1) 
+barplot( N1, main = "Proportion of null counts per Sample", las=2)
+#legend("topright", as.character(unique(target$group)), fill=unique(colors))
+
+```
+ step 8: remove null counts
+```{r}
+nc1 <- length(which(rowSums(counts1) == 0))
+nc1
+counts1 <- counts1[rowSums(counts1) > 0,]
+dim(counts1)
+
+
+```
+ step 9: density ploty
+look how it looks and if replicates look the same in terms of read density
+```{r}
+ylim <- c(0, max(density(log2(counts1)+1)$y)*1.5)
+plot( density(log2(counts1[,1])+1), main="Density of counts distribution", col=colors[1], ylim=ylim )
+for (i in 2:ncol(counts1))
+    lines( density(log2(counts1[,i])+1), col=colors[i] )
+legend( "topright", as.character(unique(target$group)), fill=unique(colors))
+
+
+ylim <- c(0, max(density(log2(counts2)+1)$y)*1.5)
+plot( density(log2(counts2[,1])+1), main="Density of counts distribution", col=colors[1], ylim=ylim )
+for (i in 2:ncol(counts2))
+    lines( density(log2(counts2[,i])+1), col=colors[i] )
+legend( "topright", as.character(unique(target$group)), fill=unique(colors))
+
+
+```
+ step 10: High count gene(s) ?
+when the sample is less covered it tends to have more high expressed sequences, one needs to check for that. y axes is pecentages
+MicroRNa you need high coverage becase they are small
+```{r}
+highCounts1 <- apply(counts1, 2, function(x){x <- x[order(x, decreasing=T)]; x[1]*100/sum(x)})
+seqname1 <- apply(counts1, 2, function(x){x <- x[order(x, decreasing=T)]; names(x)[1]})
+x <- barplot( highCounts1, main = "Proportion of reads from most expressed sequence",
+		ylim = c(0, max(highCounts1)*1.2), cex.main=0.6, las = 2 )
+for (i in 1:length(seqname1)) text( x[i], highCounts1[i]/2, seqname1[i], cex=0.6, srt=90, adj=0)
+#legend( "topright", as.character(unique(group)), as.character(unique(target$group)), fill=unique(colors) )
+
+
+```
+ step 11: compute SERE statistics, there is the function in the folder for that
+```{r}
+source("sere.R")
+sere1 <- matrix( NA, ncol=ncol(counts1), nrow=ncol(counts1) )
+for (i in 1:ncol(counts1)){
+  for (j in 1:ncol(counts1)){
+      sere1[i,j] <- sigfun_Pearson( counts1[,c(i,j)] )
+  }
+}
+colnames(sere1) <- rownames(sere1) <- colnames(counts1)
+sere1 <- formatC(sere1, format="f", digits=2) 
+sere1
+
+
+```
+ step 12: scatter plot  THIS WILL NOT WORK BECAUSE WE DON'T HAVE PAIRS BUT 12 sampels
+```{r}
+pairs( log2(counts1+1), pch=".", cex=0.5, main = "Scatter plot of raw counts" )
+
+pairs( log2(counts2+1), pch=".", cex=0.5, main = "Scatter plot of raw counts" )
+
+pairs(log2(counts1+1)[,1:3]~log2(counts1+1)[,4:6])
+
+```
+
+PART 2 : NORMALIZATION       
+
+step 13: create DESeqDataset object
+
+```{r}
+target$group <- factor(target$group)
+dds1 <- DESeqDataSetFromMatrix(countData=counts1, colData=target, design=~group)
+dim(dds1)
+head(counts(dds1))
+colData(dds1)
+
+```
+
+step 14: size factors estimation, they should be around otherwise something is wrong 
+```
+dds1 <- estimateSizeFactors(dds1)
+sizeFactors(dds1)
+colData(dds1)
+```
+step 15: check size factors, check that normalization factor have been computed correctly
+if the red line does not match the top of the distribution you have o cheng the parameter, there are only two, median is default, you use the other one if that red line is not at the top of the distribution for the normalisation, you have to do it for all the sampless regardless if only one did not have a good distribution
+```{r}
+par(mfrow=c(2,2))
+geomeans <- exp( rowMeans( log(counts(dds1)) ) )
+      
+for (j in 1:ncol(dds1)){
+    hist( log2(counts(dds1)[,j]/geomeans), nclass=100, xlab="log2(counts/geometric mean)", main=colnames(counts(dds1))[j], 
+        col="skyblue" )
+    abline( v = log2(sizeFactors(dds1)[j]), col="red", lwd=2 )
+}
+par(mfrow=c(1,1))
+
+#step 16: boxplots of raw and normalized counts
+
+boxplot(log2(counts(dds1)+1), col=colors, main="boxplots of raw counts", las=2)
+#legend( "topright", as.character(unique(group)), as.character(unique(target$group)), fill=unique(colors) )
+
+boxplot(log2(counts(dds1, normalized=TRUE)+1), col=colors, main="boxplots of normalized counts", las=2)
+
+#no color bars
+boxplot(log2(counts(dds1, normalized=TRUE)+1), main="boxplots of normalized counts", las=2)
+#legend( "topright", as.character(unique(group)), as.character(unique(target$group)), fill=unique(colors) )
+```
+
+step 17: clustering of raw and normalized samples
+to check that samples from the same tretment behave equaly
+```{r}
+hc1 <- hclust( dist(t(counts(dds1))), method="ward.D" )
+plot( hc1, xlab = "Euclidean distance, Ward criterion", main="raw counts" )
+```
+
+because we dont have gaussian data we need to transform the data to make pca, the transformation beinig used is varianceStabilizingTransformation
+```{r}
+counts.trans1 <- varianceStabilizingTransformation(dds1)
+hc1_1 <- hclust( dist(t(assay(counts.trans1))), method="ward.D" )
+plot( hc1_1, xlab = "Euclidean distance, Ward criterion", main="normalized counts" )
+```
+
+step 18: PCA plot, there are different PCA functions, try other once, FactoMineR package for example
+```{r}
+plotPCA(counts.trans1, intgroup="group")
+```
+
+
+PART 3 : DISPERSION ESTIMATION       
+
+step 19: dispersion estimation, red line is model fit o dispers, the mean value of the counts
+blue dots of this graph are used insted of black as those are estimated values,
+```{r}
+fitType1 <- "parametric"
+dds1 <- estimateDispersions(dds1, fitType=fitType1)
+```
+ step 20: dispersion estimation plot
+```{r}
+plotDispEsts(dds1)
+```
+
+step 21: check log-normality of dispersion distribution, for DEseq it is assumed that 
+it is normal distibuted, so just check that becase if this is not normaly distributed the dispersion plotwill probably have strange patterns
+```{r}
+disp1 <- mcols(dds1)$dispGeneEst
+disp1 <- disp1[!is.na(disp1)]
+disp1 <- disp1[disp1 > 1e-08]
+disp1 <- log(disp1)
+mean.disp1 <- mean(disp1, na.rm = TRUE)
+sd.disp1 <- sd(disp1, na.rm = TRUE)
+hist(disp1, freq = FALSE, nclass = 50, xlab = "Feature dispersion estimate", 
+        las = 1, main = "log-normality dispersion diagnostic", col = "skyblue")
+fun <- function(x) {
+        dnorm(x, mean = mean.disp1, sd = sd.disp1)
+}
+curve(fun, min(disp1, na.rm = TRUE), max(disp1, na.rm = TRUE), 
+        lwd = 2, n = 101, add = TRUE)
+```
+
+
+PART 4 : STATISTICAL TEST       
+
+step 22: statistical test
+```{r}
+dds1 <- nbinomWaldTest(dds1)
+```
+ step 23: displaying the results : the res table
+
+```{r}
+alpha <- 0.05
+res1 <- results(dds1, alpha = alpha)
+head(res1)							# head of result table
+mcols(res1)$description				# description of result table columns
+```
+
+step 24: extraction significant up- and down-regulated genes
+```{r}
+up1 <- res1[which(res1$padj < alpha & res$log2FoldChange > 0),]			 #up-regulated genes, fe+ > fe-
+dim(up1)
+up1 <- up1[order(up1$padj),]												 #up ordered from most to less significant
+down1 <- res1[which(res1$padj < alpha & res$log2FoldChange < 0),]			 #up-regulated genes, fe+ < fe-
+
+as.matrix(down1)   #shows low expressed genes
+
+dim(down1)
+down <- down[order(down$padj),]												 #up ordered from most to less significant
+```
+
+step 25: raw p-value distribution
+```{r}
+hist(res$pvalue, nclass=50, col="skyblue", main="raw p-value distribution")
+```
+
+ step 26: MAplot of res
+```{r}
+DESeq2::plotMA(res, alpha=alpha, main="MA plot")
+
+
+###############################ALTERNATIVE TO SCRIPT ABOVE I DID THIS:
+
+dds1 <- DESeqDataSetFromMatrix(countData=counts1, colData=target, design=~group)
+
+
+# now use this mthod that should estimate differet statistics: 
+#http://seqanswers.com/forums/showthread.php?t=45347
+#http://seqanswers.com/forums/showthread.php?t=41341
+dds1<-DESeq(dds1,betaPrior=FALSE)
+
+# Contasting differnt once from that table
+resG3_B7268 = results(dds1, contrast=c("group","G3","B7268"))
+
+
+Down_G3_when_B7268_contrast <- resG3_B7268M[which(resG3_B7268M$padj < alpha & resG3_B7268M$log2FoldChange < 0),]
+
+
+#COMPARISON
+alpha=0.05
+
+DOWN_in_B7268M_when_B7268_contrast <- resB7268_B7268M[which(resB7268_B7268M$padj < alpha & resB7268_B7268M$log2FoldChange > 0),]
+
+UP_in_B7268M_when_B7268_contras <- resB7268_B7268M[which(resB7268_B7268M$padj < alpha & resB7268_B7268M$log2FoldChange < -0),]
+
+
+resG3_NYCC37 = results(dds1, contrast=c("group","G3","NYCC37"))
+
+DOWN_in_NYCC37_when_G3_contrast <- resG3_NYCC37[which(resG3_NYCC37$padj < alpha & resG3_NYCC37$log2FoldChange > 0),]
+
+UP_in_NYCC37_when_G3_contras <- resG3_NYCC37[which(resG3_NYCC37 $padj < alpha & resG3_NYCC37$log2FoldChange < -0),]
+
+resG3_B7268M = results(dds1, contrast=c("group","G3","B7268M"))
+
+DOWN_in_B7268M_when_G3_contrast <- resG3_B7268M[which(resG3_B7268M$padj < alpha & resG3_B7268M$log2FoldChange > 2),]
+
+UP_in_B7268M_when_G3_contras <- resG3_B7268M[which(resG3_B7268M$padj < alpha & resG3_B7268M$log2FoldChange < -2),]
+
+
+resG3_B7268 = results(dds1, contrast=c("group","G3","B7268"))
+
+DOWN_in_B7268_when_G3_contrast <- resG3_B7268[which(resG3_B7268$padj < alpha & resG3_B7268$log2FoldChange > 2),]
+
+UP_in_B7268_when_G3_contras <- resG3_B7268[which(resG3_B7268$padj < alpha & resG3_B7268$log2FoldChange < -2),]
+
+
+# identify significant once
+
+sig<-which(resG3_B7268M$padj < 0.1)
+
+#and extract them 
+resG3_B7268[sig,]
+
+# not sure how this one works, but it works
+
+rld <- rlog(dds1)
+heatmap.2( assay(rld)[sig, ])
+
+
+============================  EXTRACTING ZERO expression from al isolates and each isolate
+ # Create a Table of zero expression across all isolates
+
+Not_expressed1 <- as.matrix(rawData1[,-1])
+head(Not_expressed1)
+rownames(Not_expressed1) <- rawData1[,1]
+head(Not_expressed1)
+# here are all thos that are not expressed, I compare tese with the
+# list of insertions that are present in every isolate to see which genes are 
+# abolished in all the isolates due to insertion presence in very one of them 
+Not_expressed1 <- counts1[rowSums(Not_expressed1) == 0,]
+
+#Make a table for each isolate separately of non expressed genes, after all those
+# that are commonly not expressed in all the isolates were removed. 
+Not_expressed1_B7268 <- counts1[,1:3][rowSums(counts1[,1:3])< 20,]
+write.table (Not_expressed1_B7268,"Not_expressed1_B7268")
+
+Not_expressed1_B7268M <- counts1[,4:6][rowSums(counts1[,4:6])< 20,]
+write.table (Not_expressed1_B7268M,"Not_expressed1_B7268M")
+
+Not_expressed1_NYCA04 <- counts1[,7:9][rowSums(counts1[,7:9])< 20,]
+write.table (Not_expressed1_NYCA04,"Not_expressed1_NYCA04")
+
+Not_expressed1_NYCB20 <- counts1[,10:12][rowSums(counts1[,10:12])< 20,]
+write.table (Not_expressed1_NYCB20,"Not_expressed1_NYCB20")
+
+Not_expressed1_NYCC37 <- counts1[,13:15][rowSums(counts1[,13:15])< 20,]
+write.table (Not_expressed1_NYCC37,"Not_expressed1_NYCC37")
+
+Not_expressed1_NYCD15 <- counts1[,16:18][rowSums(counts1[,16:18])< 20,]
+write.table (Not_expressed1_NYCD15,"Not_expressed1_NYCD15")
+
+Not_expressed1_NYCE32 <- counts1[,19:21][rowSums(counts1[,19:21])< 20,]
+write.table (Not_expressed1_NYCE32,"Not_expressed1_NYCE32")
+
+Not_expressed1_G3 <- counts1[,22:24][rowSums(counts1[,22:24])< 20,]
+write.table (Not_expressed1_G3,"Not_expressed1_G3")
+
+Not_expressed1_GOR_03_69 <- counts1[,25:27][rowSums(counts1[,25:27])< 20,]
+write.table (Not_expressed1_GOR_03_69,"Not_expressed1_GOR_03_69")
+
+Not_expressed1_NYCF20 <- counts1[,28:30][rowSums(counts1[,28:30])< 20,]
+write.table (Not_expressed1_NYCF20,"Not_expressed1_NYCF20")
+
+Not_expressed1_NYCG31 <- counts1[,31:33][rowSums(counts1[,31:33])< 20,]
+write.table (Not_expressed1_NYCG31,"Not_expressed1_NYCG31")
+
+Not_expressed1_SD2 <- counts1[,34:36][rowSums(counts1[,34:36])< 20,]
+write.table (Not_expressed1_SD2,"Not_expressed1_SD2")
+
+
+#now have to intersect eeach of this table with the table of each isolate 
+has insertions and see if insertion maches no gene expession.
+
+
+################################
+#NOW plot those genes 
+#cluster a subset of the most highly variable genes. Here, for demonstration, let us select the 40 genes with the highest variance across samples. We will work with the rlog transformed counts:
+
+library("genefilter")
+topVarGenes <- head(order(rowVars(assay(rld)),decreasing=TRUE),40)
+mat <- assay(rld)[ topVarGenes, ]
+mat <- mat - rowMeans(mat)
+df <- as.data.frame(colData(rld)[,c("label","group")])
+pheatmap(mat, annotation_col=df)
+
