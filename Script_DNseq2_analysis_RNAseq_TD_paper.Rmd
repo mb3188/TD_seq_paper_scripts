@@ -1,32 +1,5 @@
----
-output: pdf_document
----
-Title
-========================================================
-#Description of how we get the data we have here
-
-#DATA analysis is here for RNA_Seq: /data/cgsb/carlton/MB_ddRAD/MB_BACKUP/TD_SEQ_PAPAER_ANALYSIS/RNA_SEQ_ANALYSIS
-
-============================================
-
-# DO THIS ON THE CLUSTER, RUN HTSEQ SCRIPT TO COUNT GENE FEATURES : exract_map_reads.pbs
-
-BUNCH OF SCRIPTS IN R TO PLOT DATA: http://userweb.eng.gla.ac.uk/umer.ijaz/bioinformatics/ecological.html
-
-
-#merge all the results from htseq
-
-
-paste *_htseq_no_alignment_filter.txt | tr ' ' \\t > ALL_htseq_no_alignment_filter_results
-
-paste *_htseq.txt | tr ' ' \\t > ALL_htseq_results
-
-#extract only columns that have counts an leave only one column that has names of genes
-
- awk '{print $1, $2, $4, $6, $8, $10,$12,$14,$16,$18,$20,$22,$24,$26,$28,$30,$32,$34,$36,$38,$40,$42,$44,$46,$48,$50,$52,$54,$56,$58,$60,$62,$64,$66,$68,$70,$72,$74, $76,$78,$80,$82}'  ALL_htseq_no_alignment_filter_results | tr ' ' \\t > ALL_htseq_no_alignment_filter_TABLE
-awk '{print $1, $2, $4, $6, $8, $10,$12,$14,$16,$18,$20,$22,$24,$26,$28,$30,$32,$34,$36,$38,$40,$42,$44,$46,$48,$50,$52,$54,$56,$58,$60,$62,$64,$66,$68,$70,$72,$74, $76,$78,$80,$82}' ALL_htseq_results | tr ' ' \\t > ALL_htseq_results_TABLE
-
-========================================================================
+#perform RNA-seq analyis using DNASeq2 package in R
+# This script is costumized for files used in the paper. 
 
 #START DNASeq2 analysis
 
