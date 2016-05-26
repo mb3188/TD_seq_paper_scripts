@@ -1,0 +1,26 @@
+#!/bin/bash
+
+#PBS -q cgsb-s
+#PBS -l nodes=1:ppn=2,walltime=5:00:00,mem=320mb
+#PBS -N Insertion_detection
+#PBS -M mb3188@nyu.edu
+#PBS -m a
+#PBS -e localhost:$PBS_O_WORKDIR/${PBS_JOBNAME}.e${PBS_JOBID}
+#PBS -j eo
+
+
+module load samtools/1.2/intel/bin/samtools
+module load bedtools/2.25.0/intel/bin/bedtools
+
+cd ${PBS_O_WORKDIR}
+
+qstat -f ${PBS_JOBID}
+echo `date`
+echo `hostname`
+
+if [ -z ${PBS_ARRAYID} ]; then
+	echo _ERROR_ expecting an array job in INSERTION_DETECTION.pbs
+	exit 1
+fi
+
+source INSERTION_DETECTION.sh > INSERTION_DETECTION.${PBS_ARRAYID}.${PBS_JOBID}.log 2>&1
