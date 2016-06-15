@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#PBS -q cgsb-s
+#PBS -l nodes=1:ppn=2,walltime=48:00:00,mem=32000mb
+#PBS -N aln_pipeline
+#PBS -M mb3188@nyu.edu
+#PBS -m a
+#PBS -j eo
+
+cd ${PBS_O_WORKDIR}
+
+qstat -f ${PBS_JOBID}
+echo `date`
+echo `hostname`
+
+if [ -z ${PBS_ARRAYID} ]; then
+	echo _ERROR_ expecting an array job in aln_pipeline.pbs
+	exit 1
+fi
+
+source aln_pipeline.sh > aln_pipeline.${PBS_ARRAYID}.${PBS_JOBID}.log 2>&1
