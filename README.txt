@@ -147,12 +147,12 @@ the false positive rate
 
 ############################  RNA-seq analysis
 
-# Everything remains the same as above, the same pipline is used the difference is that  aln_pipeline_RNA.pbs
-and  aln_pipelin_RNA.sh parameters should be used for a run and new project folder in 
+# Everything remains the same as above, the same pipline is used the difference is that  aln_pipeline_RNAseq.pbs
+and  aln_pipelin_RNAseq.sh parameters should be used for a run and new project folder in 
 which run will occur should be created. 
 
 After alignment is finished the number of reads aligned and counts of the reads per feature can be obtained
-by using the 
+by using the extract_map_reads.sh and  extract_map_reads.pbs scripts. 
 
 
 After having raw counts calculated by HTseq we use DNAseq2 package in R using 
